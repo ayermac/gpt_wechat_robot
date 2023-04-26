@@ -10,6 +10,7 @@ import (
 	"log"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,34 +39,51 @@ func QrCodeCallBack(uuid string) {
 func NewHandler() (msgFunc func(msg *openwechat.Message), err error) {
 	dispatcher := openwechat.NewMessageMatchDispatcher()
 
-	// 清空会话
-	dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
-		return strings.Contains(message.Content, config.LoadConfig().SessionClearToken)
-	}, TokenMessageContextHandler())
+	wg := sync.WaitGroup{}
+	wg.Add(4)
 
-	// 处理群消息
-	dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
-		return message.IsSendByGroup()
-	}, GroupMessageContextHandler())
+	go func() {
+		defer wg.Done()
+		// 清空会话
+		dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
+			return strings.Contains(message.Content, config.LoadConfig().SessionClearToken)
+		}, TokenMessageContextHandler())
+	}()
 
-	// 好友申请
-	dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
-		return message.IsFriendAdd()
-	}, func(ctx *openwechat.MessageContext) {
-		msg := ctx.Message
-		if config.LoadConfig().AutoPass {
-			_, err := msg.Agree("")
-			if err != nil {
-				logger.Warning(fmt.Sprintf("add friend agree error : %v", err))
-				return
+	go func() {
+		defer wg.Done()
+		// 处理群消息
+		dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
+			return message.IsSendByGroup()
+		}, GroupMessageContextHandler())
+	}()
+
+	go func() {
+		defer wg.Done()
+		// 好友申请
+		dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
+			return message.IsFriendAdd()
+		}, func(ctx *openwechat.MessageContext) {
+			msg := ctx.Message
+			if config.LoadConfig().AutoPass {
+				_, err := msg.Agree("")
+				if err != nil {
+					logger.Warning(fmt.Sprintf("add friend agree error : %v", err))
+					return
+				}
 			}
-		}
-	})
+		})
+	}()
 
-	// 私聊
-	// 获取用户消息处理器
-	dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
-		return !(strings.Contains(message.Content, config.LoadConfig().SessionClearToken) || message.IsSendByGroup() || message.IsFriendAdd())
-	}, UserMessageContextHandler())
+	go func() {
+		defer wg.Done()
+		// 私聊
+		// 获取用户消息处理器
+		dispatcher.RegisterHandler(func(message *openwechat.Message) bool {
+			return !(strings.Contains(message.Content, config.LoadConfig().SessionClearToken) || message.IsSendByGroup() || message.IsFriendAdd())
+		}, UserMessageContextHandler())
+	}()
+
+	wg.Wait()
 	return openwechat.DispatchMessage(dispatcher), nil
 }

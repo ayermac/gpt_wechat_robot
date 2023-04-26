@@ -82,15 +82,31 @@ func (h *UserMessageHandler) ReplyText() error {
 		reply string
 		err   error
 	)
+
+	if h.msg.IsSendBySelf() {
+		// 自己发的消息不处理
+		log.Println("IsSendBySelf not handle")
+		return nil
+	}
+
 	// 1.获取上下文，如果字符串为空不处理
 	requestText := h.getRequestText()
+
+	// 判断是否包含GPT指令
+	if !strings.Contains(requestText, config.LoadConfig().ReplyStartCommand) {
+		log.Println(fmt.Sprintf("msg not contains %s", config.LoadConfig().ReplyStartCommand))
+		return nil
+	}
+
+	// 去除指令
+	requestText = strings.Trim(requestText, config.LoadConfig().ReplyStartCommand)
 	if requestText == "" {
 		log.Println("user message is empty")
 		return nil
 	}
 
 	// 2.向GPT发起请求，如果回复文本等于空,不回复
-	reply, err = gpt.Completions(h.getRequestText())
+	reply, err = gpt.Completions(requestText)
 	if err != nil {
 		text := err.Error()
 		if strings.Contains(err.Error(), "context deadline exceeded") {

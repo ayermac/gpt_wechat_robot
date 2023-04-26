@@ -29,6 +29,8 @@ type Configuration struct {
 	ReplyPrefix string `json:"reply_prefix"`
 	// 清空会话口令
 	SessionClearToken string `json:"session_clear_token"`
+	// 开启回复指令
+	ReplyStartCommand string `json:"reply_start_command"`
 }
 
 var config *Configuration
@@ -45,6 +47,7 @@ func LoadConfig() *Configuration {
 			Model:             "text-davinci-003",
 			Temperature:       0.9,
 			SessionClearToken: "下个问题",
+			ReplyStartCommand: "bot",
 		}
 
 		// 判断配置文件是否存在，存在直接JSON读取
@@ -71,6 +74,7 @@ func LoadConfig() *Configuration {
 		MaxTokens := os.Getenv("MAX_TOKENS")
 		Temperature := os.Getenv("TEMPREATURE")
 		ReplyPrefix := os.Getenv("REPLY_PREFIX")
+		ReplyStartCommand := os.Getenv("REPLY_START_COMMAND")
 		SessionClearToken := os.Getenv("SESSION_CLEAR_TOKEN")
 		if ApiKey != "" {
 			config.ApiKey = ApiKey
@@ -110,6 +114,9 @@ func LoadConfig() *Configuration {
 		}
 		if SessionClearToken != "" {
 			config.SessionClearToken = SessionClearToken
+		}
+		if ReplyStartCommand != "" {
+			config.ReplyStartCommand = ReplyStartCommand
 		}
 
 	})
